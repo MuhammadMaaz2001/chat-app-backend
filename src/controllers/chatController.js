@@ -66,3 +66,67 @@ export const accessOrCreateChat = async (req, res) => {
   const fullChat = await chat.populate("users", "-password").execPopulate();
   res.status(201).json(fullChat);
 };
+
+
+export const createGroupChat = async (req, res) => {
+  const { name, users } = req.body;
+
+  if (!name || !users) {
+    return res.status(400).json({ message: "All fields are required" });
+  }
+
+  const parsedUsers = typeof users === "string" ? JSON.parse(users) : users;
+
+  if (parsedUsers.length < 2) {
+    return res.status(400).json({ message: "At least 2 members required to form a group" });
+  }
+
+  parsedUsers.push(req.user._id); // Add the creator
+
+  const groupChat = await Chat.create({
+    chatName: name,
+    isGroupChat: true,
+    users: parsedUsers,
+    groupAdmin: req.user._id,
+  });
+
+  const populatedChat = await groupChat.populate("users", "-password").execPopulate();
+
+  res.status(201).json(populatedChat);
+};
+
+export const renameGroup = async (req, res) => {
+  const { chatId, name } = req.body;
+
+  const updated = await Chat.findByIdAndUpdate(
+    chatId,
+    { chatName: name },
+    { new: true }
+  ).populate("users", "-password");
+
+  res.json(updated);
+};
+
+export const addToGroup = async (req, res) => {
+  const { chatId, userId } = req.body;
+
+  const updated = await Chat.findByIdAndUpdate(
+    chatId,
+    { $push: { users: userId } },
+    { new: true }
+  ).populate("users", "-password");
+
+  res.json(updated);
+};
+
+export const removeFromGroup = async (req, res) => {
+  const { chatId, userId } = req.body;
+
+  const updated = await Chat.findByIdAndUpdate(
+    chatId,
+    { $pull: { users: userId } },
+    { new: true }
+  ).populate("users", "-password");
+
+  res.json(updated);
+};
