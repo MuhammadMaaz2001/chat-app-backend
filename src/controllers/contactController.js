@@ -1,22 +1,53 @@
 
 import Contact from "../models/Contact.js";
 import Chat from "../models/Chat.js";
+import User from '../models/User.js';
+
+// export const sendFriendRequest = async (req, res) => {
+//   const { receiverId } = req.body;
+
+//   const existing = await Contact.findOne({
+//     sender: req.user._id,
+//     receiver: receiverId,
+//   });
+//   if (existing) return res.status(400).json({ message: "Request already sent" });
+
+//   const contact = await Contact.create({
+//     sender: req.user._id,
+//     receiver: receiverId,
+//   });
+
+//   res.status(201).json(contact);
+// };
 
 export const sendFriendRequest = async (req, res) => {
-  const { receiverId } = req.body;
+  try {
+    const { receiverId } = req.body;
+    const receiverUser = await User.findOne({ email: receiverId });
 
-  const existing = await Contact.findOne({
-    sender: req.user._id,
-    receiver: receiverId,
-  });
-  if (existing) return res.status(400).json({ message: "Request already sent" });
+    if (!receiverUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
-  const contact = await Contact.create({
-    sender: req.user._id,
-    receiver: receiverId,
-  });
+    const existing = await Contact.findOne({
+      sender: req.user._id,
+      receiver: receiverUser._id,
+    });
 
-  res.status(201).json(contact);
+    if (existing) {
+      return res.status(400).json({ message: "Request already sent" });
+    }
+
+    const contact = await Contact.create({
+      sender: req.user._id,
+      receiver: receiverUser._id,
+    });
+
+    res.status(201).json(contact);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: err.message });
+  }
 };
 
 export const respondToRequest = async (req, res) => {
