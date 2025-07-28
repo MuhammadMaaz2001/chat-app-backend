@@ -30,10 +30,13 @@
 //   });
 // };
 
+let ioInstance;
+
 
 const onlineUsers = new Map(); // userId → socketId
 
 export const socketHandler = (io) => {
+  ioInstance = io;
   io.on("connection", (socket) => {
     console.log("✅ New socket connected:", socket.id);
 
@@ -87,3 +90,5 @@ export const socketHandler = (io) => {
     });
   });
 };
+
+export const getIO = () => ioInstance;

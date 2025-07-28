@@ -14,6 +14,11 @@ const messageSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Chat",
     },
+    mediaUrl: {
+  type: [String],
+  default: "",
+}
+
   },
   { timestamps: true }
 );
