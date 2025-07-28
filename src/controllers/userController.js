@@ -57,3 +57,92 @@ export const getProfile = async (req, res) => {
 export const logoutUser = (req, res) => {
   res.status(200).json({ message: "Logged out (client must clear token)" });
 };
+
+
+// Search users by name or email (excluding self)
+export const searchUsers = async (req, res) => {
+  const keyword = req.query.search;
+
+  if (!keyword) return res.json([]);
+
+  const regex = new RegExp(keyword, "i"); // case-insensitive search
+
+  const users = await User.find({
+    $or: [{ name: regex }, { email: regex }],
+    _id: { $ne: req.user._id },
+  }).select("-password");
+
+  res.json(users);
+};
+
+// Send friend request
+export const sendFriendRequest = async (req, res) => {
+  const { targetUserId } = req.body;
+  const senderId = req.user._id;
+
+  if (targetUserId === senderId.toString()) {
+    return res.status(400).json({ message: "Cannot add yourself." });
+  }
+
+  const targetUser = await User.findById(targetUserId);
+  if (!targetUser) return res.status(404).json({ message: "User not found" });
+
+  // Check if already exists
+  const existing = targetUser.friendRequests.find(
+    (req) => req.from.toString() === senderId.toString()
+  );
+
+  if (existing) return res.status(400).json({ message: "Request already sent" });
+
+  targetUser.friendRequests.push({ from: senderId });
+  await targetUser.save();
+
+  res.status(200).json({ message: "Friend request sent" });
+};
+
+// Accept friend request
+export const acceptFriendRequest = async (req, res) => {
+  const senderId = req.body.senderId;
+  const receiver = await User.findById(req.user._id);
+  const sender = await User.findById(senderId);
+
+  if (!receiver || !sender) return res.status(404).json({ message: "User not found" });
+
+  const request = receiver.friendRequests.find((r) => r.from.toString() === senderId);
+  if (!request) return res.status(400).json({ message: "No such request" });
+
+  request.status = "accepted";
+  receiver.contacts.push(senderId);
+  sender.contacts.push(receiver._id);
+
+  await receiver.save();
+  await sender.save();
+
+  res.json({ message: "Friend request accepted" });
+};
+
+// Reject friend request
+export const rejectFriendRequest = async (req, res) => {
+  const senderId = req.body.senderId;
+  const receiver = await User.findById(req.user._id);
+
+  receiver.friendRequests = receiver.friendRequests.filter(
+    (r) => r.from.toString() !== senderId
+  );
+
+  await receiver.save();
+  res.json({ message: "Friend request rejected" });
+};
+
+// List all accepted contacts
+export const getContacts = async (req, res) => {
+  const user = await User.findById(req.user._id).populate("contacts", "name email avatar");
+  res.json(user.contacts);
+};
+
+// List all pending requests
+export const getPendingRequests = async (req, res) => {
+  const user = await User.findById(req.user._id).populate("friendRequests.from", "name email avatar");
+  const pending = user.friendRequests.filter(r => r.status === "pending");
+  res.json(pending);
+};

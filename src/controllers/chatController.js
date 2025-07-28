@@ -35,3 +35,34 @@ export const getChats = async (req, res) => {
 
   res.json(chats);
 };
+
+// Create or get a chat (only if they are contacts)
+export const accessOrCreateChat = async (req, res) => {
+  const { userId } = req.body;
+  const currentUserId = req.user._id;
+
+  if (!userId) return res.status(400).json({ message: "User ID required" });
+
+  // Check if user is in contacts
+  const currentUser = await User.findById(currentUserId);
+  if (!currentUser.contacts.includes(userId)) {
+    return res.status(403).json({ message: "You are not contacts with this user" });
+  }
+
+  // Check for existing chat
+  let chat = await Chat.findOne({
+    isGroupChat: false,
+    users: { $all: [currentUserId, userId] },
+  }).populate("users", "-password");
+
+  if (chat) return res.json(chat);
+
+  // Create chat
+  chat = await Chat.create({
+    isGroupChat: false,
+    users: [currentUserId, userId],
+  });
+
+  const fullChat = await chat.populate("users", "-password").execPopulate();
+  res.status(201).json(fullChat);
+};
