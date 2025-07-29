@@ -1,5 +1,7 @@
 import Chat from "../models/Chat.js";
 import User from "../models/User.js";
+import { getIO, onlineUsers } from "../socket/index.js";
+
 
 // Access or create one-to-one chat
 export const accessChat = async (req, res) => {
@@ -27,7 +29,7 @@ export const accessChat = async (req, res) => {
 
 // Fetch all chats for user
 export const getChats = async (req, res) => {
-  const chats = await Chat.find({ users: req.user._id })
+  const chats = await Chat.find({ users: req.user._id , isDeleted: false })
     .populate("users", "-password")
     .populate("groupAdmin", "-password")
     .populate("latestMessage")
@@ -91,6 +93,34 @@ export const createGroupChat = async (req, res) => {
   });
 
   const populatedChat = await groupChat.populate("users", "-password").execPopulate();
+  const io = getIO();
+
+const groupId = groupChat._id;
+const groupName = groupChat.chatName || "New Group";
+
+for (const member of parsedUsers) {
+  // Skip notification to the creator
+  if (member.toString() === req.user._id.toString()) continue;
+
+  await Notification.create({
+    recipient: member,
+    sender: req.user._id,
+    type: "group_event",
+    content: `You were added to group "${groupName}"`,
+    link: `/chats/${groupId}`,
+  });
+
+  const socketId = onlineUsers.get(member.toString());
+  if (socketId) {
+    io.to(socketId).emit("notification", {
+      type: "group_event",
+      content: `You were added to group "${groupName}"`,
+      chatId: groupId,
+      timestamp: new Date(),
+    });
+  }
+}
+
 
   res.status(201).json(populatedChat);
 };
@@ -116,6 +146,24 @@ export const addToGroup = async (req, res) => {
     { new: true }
   ).populate("users", "-password");
 
+  await Notification.create({
+  recipient: userId,
+  sender: req.user._id,
+  type: "group_event",
+  content: "You were added to a group",
+  link: `/chats/${chatId}`,
+});
+
+const socketId = onlineUsers.get(userId.toString());
+if (socketId) {
+  getIO().to(socketId).emit("notification", {
+    type: "group_event",
+    content: "You were added to a group",
+    chatId,
+    timestamp: new Date(),
+  });
+}
+
   res.json(updated);
 };
 
@@ -128,5 +176,94 @@ export const removeFromGroup = async (req, res) => {
     { new: true }
   ).populate("users", "-password");
 
+  await Notification.create({
+  recipient: userId,
+  sender: req.user._id,
+  type: "group_event",
+  content: "You were removed from a group",
+  link: `/chats/${chatId}`,
+});
+
+const socketId = onlineUsers.get(userId.toString());
+if (socketId) {
+  getIO().to(socketId).emit("notification", {
+    type: "group_event",
+    content: "You were removed from a group",
+    chatId,
+    timestamp: new Date(),
+  });
+}
+
+
   res.json(updated);
+};
+
+export const deleteGroupChat = async (req, res) => {
+  const { chatId } = req.params;
+  const userId = req.user._id;
+
+  const chat = await Chat.findById(chatId);
+  if (!chat) return res.status(404).json({ message: "Chat not found" });
+
+  if (!chat.isGroupChat) return res.status(400).json({ message: "Not a group chat" });
+
+  if (chat.groupAdmin.toString() !== userId.toString()) {
+    return res.status(403).json({ message: "Only admin can delete the group" });
+  }
+
+  // await Chat.findByIdAndDelete(chatId);
+  // res.json({ message: "Group chat deleted successfully" });
+await Chat.findByIdAndUpdate(chatId, { isDeleted: true });
+
+const io = getIO();
+const groupName = chat.chatName || "A group";
+
+for (const member of chat.users) {
+  await Notification.create({
+    recipient: member,
+    sender: req.user._id,
+    type: "group_event",
+    content: `Group "${groupName}" has been deleted`,
+    link: `/chats/${chatId}`,
+  });
+
+  const socketId = onlineUsers.get(member.toString());
+  if (socketId) {
+    io.to(socketId).emit("notification", {
+      type: "group_event",
+      content: `Group "${groupName}" has been deleted`,
+      chatId,
+      timestamp: new Date(),
+    });
+  }
+}
+
+res.json({ message: "Group chat deleted successfully" });
+
+
+};
+
+export const unfriendUser = async (req, res) => {
+  const { userId } = req.params;
+  const currentUserId = req.user._id;
+
+  // Delete the contact
+  const contact = await Contact.findOneAndDelete({
+    $or: [
+      { sender: currentUserId, receiver: userId, status: "Accepted" },
+      { sender: userId, receiver: currentUserId, status: "Accepted" },
+    ]
+  });
+
+  // Delete 1-to-1 chat (optional)
+  const chat = await Chat.findOneAndDelete({
+    isGroupChat: false,
+    users: { $all: [currentUserId, userId] }
+  });
+
+  if (!contact) {
+    return res.status(404).json({ message: "Contact not found or already removed" });
+  }
+
+  res.json({ message: "Unfriended successfully" });
 };

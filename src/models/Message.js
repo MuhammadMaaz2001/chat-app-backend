@@ -14,6 +14,8 @@ const messageSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Chat",
     },
+    isDeleted: { type: Boolean, default: false },
+
     mediaUrl: {
   type: [String],
   default: "",

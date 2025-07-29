@@ -9,6 +9,7 @@ const contactSchema = new mongoose.Schema({
     enum: ["Pending", "Accepted", "Rejected"],
     default: "Pending",
   },
+  isDeleted: { type: Boolean, default: false },
 }, { timestamps: true });
 
 export default mongoose.model("Contact", contactSchema);

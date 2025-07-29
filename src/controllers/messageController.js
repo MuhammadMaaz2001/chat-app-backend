@@ -40,6 +40,10 @@ export const sendMessage = async (req, res) => {
     return res.status(403).json({ message: "Not part of this chat" });
   }
 
+  if (recipient.blockedUsers.includes(userId)) {
+  return res.status(403).json({ message: "You are blocked by this user" });
+}
+
   // 3. Check contact for private chats
   const recipientId = chat.users.find((u) => u._id.toString() !== userId.toString())?._id;
   if (!chat.isGroupChat && recipientId) {
@@ -115,7 +119,8 @@ if (recipientSocketId) {
 export const getMessages = async (req, res) => {
   const { chatId, page = 1, limit = 20 } = req.query;
 
-  const messages = await Message.find({ chat: chatId })
+  // const messages = await Message.find({ chat: chatId ,})
+  const messages = await Chat.findByIdAndUpdate(chatId, { isDeleted: true })
     .sort({ createdAt: -1 }) // latest first
     .skip((page - 1) * limit)
     .limit(Number(limit))
@@ -123,4 +128,22 @@ export const getMessages = async (req, res) => {
     .populate("chat");
 
   res.json(messages.reverse()); // reverse to send oldest → latest
+};
+
+export const getUnreadCount = async (req, res) => {
+  const chats = await Chat.find({ users: req.user._id });
+
+  const unreadCounts = await Promise.all(
+    chats.map(async (chat) => {
+      const count = await Message.countDocuments({
+        chat: chat._id,
+        sender: { $ne: req.user._id },
+        isRead: false,
+        isDeleted: false
+      });
+      return { chatId: chat._id, unreadCount: count };
+    })
+  );
+
+  res.json(unreadCounts);
 };

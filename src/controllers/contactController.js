@@ -14,6 +14,9 @@ export const sendFriendRequest = async (req, res) => {
     if (!receiverUser) {
       return res.status(404).json({ message: "User not found" });
     }
+   if (receiverUser.blockedUsers.includes(req.user._id)) {
+  return res.status(403).json({ message: "You are blocked by this user" });
+}
 
     // Prevent sending request to self
     if (receiverUser._id.toString() === req.user._id.toString()) {
@@ -129,6 +132,26 @@ export const respondToRequest = async (req, res) => {
   res.json({ message: `Friend request ${action.toLowerCase()}` });
 }
 
+// export const getContacts = async (req, res) => {
+//   const contacts = await Contact.find({
+//     $or: [
+//       { sender: req.user._id },
+//       { receiver: req.user._id }
+//     ],isDeleted: false,
+//     status: "Accepted",
+    
+//   })
+//     .populate("sender", "name email avatar")
+//     .populate("receiver", "name email avatar");
+
+//   const friends = contacts.map(contact => {
+//     const isSender = contact.sender._id.toString() === req.user._id.toString();
+//     return isSender ? contact.receiver : contact.sender;
+//   });
+
+//   res.json(friends);
+// };
+
 export const getContacts = async (req, res) => {
   const contacts = await Contact.find({
     $or: [
@@ -136,6 +159,7 @@ export const getContacts = async (req, res) => {
       { receiver: req.user._id }
     ],
     status: "Accepted",
+    isDeleted: false // ✅ Place this outside the `$or`
   })
     .populate("sender", "name email avatar")
     .populate("receiver", "name email avatar");

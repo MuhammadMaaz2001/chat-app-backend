@@ -20,6 +20,8 @@ const chatSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Message",
     },
+    isDeleted: { type: Boolean, default: false },
+
     groupAdmin: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
