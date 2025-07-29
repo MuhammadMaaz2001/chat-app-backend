@@ -26,16 +26,18 @@ const userSchema = new mongoose.Schema(
       enum: ["user", "admin"],
       default: "user",
     },
-    friendRequests: [
-  {
-    from: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-    status: {
-      type: String,
-      enum: ["pending", "accepted", "rejected"],
-      default: "pending",
-    },
-  },
-],
+//     friendRequests: [
+//   {
+//     from: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+//         to: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+
+//     status: {
+//       type: String,
+//       enum: ["pending", "accepted", "rejected"],
+//       default: "pending",
+//     },
+//   },
+// ],
 
 contacts: [
   {

@@ -84,7 +84,8 @@ export const sendFriendRequest = async (req, res) => {
     return res.status(400).json({ message: "Cannot add yourself." });
   }
 
-  const targetUser = await User.findById(targetUserId);
+  targetUser.friendRequests.push({ from: senderId, to: targetUserId });
+
   if (!targetUser) return res.status(404).json({ message: "User not found" });
 
   // Check if already exists
@@ -146,3 +147,4 @@ export const getPendingRequests = async (req, res) => {
   const pending = user.friendRequests.filter(r => r.status === "pending");
   res.json(pending);
 };
+

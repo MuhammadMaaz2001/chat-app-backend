@@ -33,7 +33,7 @@
 let ioInstance;
 
 
-const onlineUsers = new Map(); // userId → socketId
+export const onlineUsers = new Map(); // userId → socketId
 
 export const socketHandler = (io) => {
   ioInstance = io;
