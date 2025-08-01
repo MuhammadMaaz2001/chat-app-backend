@@ -63,19 +63,24 @@ export const socketHandler = (io) => {
     });
 
     // Send message to specific chat
-    socket.on("new-message", (message) => {
-      const { chat } = message;
+socket.on("new-message", (message) => {
+  const { chat } = message;
 
-      if (!chat?.users) return;
+  if (!chat || !Array.isArray(chat.users)) return;
 
-      chat.users.forEach((user) => {
-        if (user._id === message.sender._id) return;
-        const socketId = onlineUsers.get(user._id);
-        if (socketId) {
-          io.to(socketId).emit("message-received", message);
-        }
-      });
-    });
+  chat.users.forEach((user) => {
+    const userId = user._id?.toString();
+    const senderId = message.sender?._id?.toString();
+
+    if (userId && userId !== senderId) {
+      const socketId = onlineUsers.get(userId);
+      if (socketId) {
+        io.to(socketId).emit("message-received", message);
+      }
+    }
+  });
+});
+
 
     // Handle disconnect
     socket.on("disconnect", () => {

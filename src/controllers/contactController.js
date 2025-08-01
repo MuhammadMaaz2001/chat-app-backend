@@ -3,6 +3,8 @@ import Contact from "../models/Contact.js";
 import Chat from "../models/Chat.js";
 import User from '../models/User.js';
 import { getIO , onlineUsers} from "../socket/index.js";
+import Notification from "../models/Notification.js";
+
 
 
 
@@ -82,6 +84,25 @@ export const sendFriendRequest = async (req, res) => {
       sender: req.user._id,
       receiver: receiverUser._id,
     });
+// Create notification in DB
+await Notification.create({
+  recipient: receiverUser._id,
+  sender: req.user._id,
+  type: "friend_request",
+  content: "You have a new friend request",
+  link: "/contacts"
+});
+
+// Emit notification to receiver if online
+const io = getIO();
+const receiverSocketId = onlineUsers.get(receiverUser._id.toString());
+if (receiverSocketId) {
+  io.to(receiverSocketId).emit("notification", {
+    type: "friend_request",
+    from: req.user._id,
+    message: "You have a new friend request",
+  });
+}
 
     res.status(201).json(contact);
 
